@@ -91,14 +91,16 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view virtual override returns (uint256) {
-        
+        return _totalSupply;
     }
 
     /**
      * @dev See {IERC20-balanceOf}.
      */
-    function balanceOf(address account) public view virtual override returns (uint256) {
-        
+    function balanceOf(
+        address account
+    ) public view virtual override returns (uint256) {
+        return _balances[account];
     }
 
     /**
@@ -109,15 +111,22 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `to` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address to, uint256 amount) public virtual override returns (bool) {
-        
+    function transfer(
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        _transfer(msg.sender, to, amount);
+        return true;
     }
 
     /**
      * @dev See {IERC20-allowance}.
      */
-    function allowance(address owner, address spender) public view virtual override returns (uint256) {
-        
+    function allowance(
+        address owner,
+        address spender
+    ) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
     }
 
     /**
@@ -130,9 +139,10 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      *
      * - `spender` cannot be the zero address.
      */
-    function approve(address spender, uint256 amount) public virtual override returns (bool) {
-        
-    }
+    function approve(
+        address spender,
+        uint256 amount
+    ) public virtual override returns (bool) {}
 
     /**
      * @dev See {IERC20-transferFrom}.
@@ -150,9 +160,11 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - the caller must have allowance for ``from``'s tokens of at least
      * `amount`.
      */
-    function transferFrom(address from, address to, uint256 amount) public virtual override returns (bool) {
-        
-    }
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {}
 
     /**
      * @dev Atomically increases the allowance granted to `spender` by the caller.
@@ -166,9 +178,10 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      *
      * - `spender` cannot be the zero address.
      */
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        
-    }
+    function increaseAllowance(
+        address spender,
+        uint256 addedValue
+    ) public virtual returns (bool) {}
 
     /**
      * @dev Atomically decreases the allowance granted to `spender` by the caller.
@@ -184,9 +197,10 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `spender` must have allowance for the caller of at least
      * `subtractedValue`.
      */
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        
-    }
+    function decreaseAllowance(
+        address spender,
+        uint256 subtractedValue
+    ) public virtual returns (bool) {}
 
     /**
      * @dev Moves `amount` of tokens from `from` to `to`.
@@ -202,8 +216,23 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `to` cannot be the zero address.
      * - `from` must have a balance of at least `amount`.
      */
-    function _transfer(address from, address to, uint256 amount) internal virtual {
-        
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {
+        require(from != address(0), "cannot be from zero address");
+        require(to != address(0), "cannot send to zero address");
+
+        uint256 from_balance = _balances[from];
+        require(from_balance >= amount, "transfer exceeds balance");
+
+        unchecked {
+            // unchecked in order to save gas(중복체크 방지)!!
+            _balances[from] -= amount;
+            _balances[to] += amount;
+        }
+        emit Transfer(from, to, amount);
     }
 
     /** @dev Creates `amount` tokens and assigns them to `account`, increasing
@@ -216,7 +245,8 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `account` cannot be the zero address.
      */
     function _mint(address account, uint256 amount) internal virtual {
-        
+        _totalSupply += amount;
+        _balances[account] += amount;
     }
 
     /**
@@ -231,7 +261,12 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `account` must have at least `amount` tokens.
      */
     function _burn(address account, uint256 amount) internal virtual {
-        
+        require(_balances[account] >= amount, "not enough balance");
+        unchecked {
+            _totalSupply -= amount;
+            _balances[account] -= amount;
+        }
+        emit Transfer(account, address(0), amount);
     }
 
     /**
@@ -247,8 +282,15 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `owner` cannot be the zero address.
      * - `spender` cannot be the zero address.
      */
-    function _approve(address owner, address spender, uint256 amount) internal virtual {
-       
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        require(owner != address(0), "owner cannot be the zero address");
+        require(spender != address(0), "spender cannot be the zero address");
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
     }
 
     /**
@@ -259,10 +301,16 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      *
      * Might emit an {Approval} event.
      */
-    function _spendAllowance(address owner, address spender, uint256 amount) internal virtual {
-        
-        
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        // current_allowance를 두번 이상 사용하기 때문에 미리 변수로 지정해두면 가스비 절약됨
+        uint256 current_allowance = _allowances[owner][spender];
+        require(current_allowance >= amount, "not enough allowance");
+        if (current_allowance != type(uint256).max) {
+            _approve(owner, spender, current_allowance - amount);
+        }
     }
-
-   
 }
